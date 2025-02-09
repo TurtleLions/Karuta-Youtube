@@ -5,3 +5,5 @@ lib
 include
 etc
 bin
+pyvenv.cfg
+lib/python3.12/site-packages
