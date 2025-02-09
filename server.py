@@ -12,66 +12,63 @@ PROGRESS_FILE = "progress.json"
 
 @app.route('/')
 def home():
-    return render_template("index.html")
+  return render_template("index.html")
 
 
 @app.route('/run-script', methods=['POST'])
 def run_script():
-    """Runs the script with a user-provided YouTube playlist URL."""
-    try:
-        data = request.json
-        playlist_url = data.get("playlist_url")
+  try:
+    data = request.json
+    playlist_url = data.get("playlist_url")
 
-        if not playlist_url:
-            return jsonify({"error": "No playlist URL provided"}), 400
+    if not playlist_url:
+      return jsonify({"error": "No playlist URL provided"}), 400
 
-        subprocess.Popen(["python", "main.py", playlist_url])
-        return jsonify({"message": "Script started successfully!"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    subprocess.Popen(["python", "main.py", playlist_url])
+    return jsonify({"message": "Script started successfully!"})
+  except Exception as e:
+    return jsonify({"error": str(e)}), 500
 
 
 @app.route('/progress', methods=['GET'])
 def get_progress():
-    if os.path.exists(PROGRESS_FILE):
-        with open(PROGRESS_FILE, "r") as f:
-            return jsonify(json.load(f))
-    return jsonify({"done": 0, "total": 0})
+  if os.path.exists(PROGRESS_FILE):
+    with open(PROGRESS_FILE, "r") as f:
+      return jsonify(json.load(f))
+  return jsonify({"done": 0, "total": 0})
 
 
 @app.route('/clear-songs', methods=['POST'])
 def clear_songs():
-    try:
-        files = [f for f in os.listdir(SONGS_FOLDER) if f.endswith('.mp3')]
-        for f in files:
-            os.remove(os.path.join(SONGS_FOLDER, f))
-        return jsonify({"message": "Songs folder cleared successfully!"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+  try:
+    files = [f for f in os.listdir(SONGS_FOLDER) if f.endswith('.mp3')]
+    for f in files:
+      os.remove(os.path.join(SONGS_FOLDER, f))
+    return jsonify({"message": "Songs folder cleared successfully!"})
+  except Exception as e:
+    return jsonify({"error": str(e)}), 500
 
 
 @app.route('/get-songs', methods=['GET'])
 def get_songs():
-    """Returns a list of available MP3 files."""
-    files = [f for f in os.listdir(SONGS_FOLDER) if f.endswith('.mp3')]
-    return jsonify({"songs": files})
+  """Returns a list of available MP3 files."""
+  files = [f for f in os.listdir(SONGS_FOLDER) if f.endswith('.mp3')]
+  return jsonify({"songs": files})
 
 
 @app.route('/random-song', methods=['GET'])
 def random_song():
-    """Selects a random MP3 file and returns its name and path."""
-    files = [f for f in os.listdir(SONGS_FOLDER) if f.endswith('.mp3')]
-    if files:
-        song = random.choice(files)
-        return jsonify({"song": song, "audio_file": f"/songs/{song}"})
-    return jsonify({"error": "No songs available"}), 404
+  files = [f for f in os.listdir(SONGS_FOLDER) if f.endswith('.mp3')]
+  if files:
+    song = random.choice(files)
+    return jsonify({"song": song, "audio_file": f"/songs/{song}"})
+  return jsonify({"error": "No songs available"}), 404
 
 
 @app.route('/songs/<filename>')
 def serve_audio(filename):
-    """Serves an MP3 file."""
-    return send_file(os.path.join(SONGS_FOLDER, filename))
+  return send_file(os.path.join(SONGS_FOLDER, filename))
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+  app.run(debug=True)
