@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Playlist Downloader</title>
+</head>
+<body>
+    <h1>YouTube Playlist Downloader</h1>
+    
+    <button id="runScript">Download & Convert Playlist</button>
+    
+    <h2>Audio Player</h2>
+    <audio id="audioPlayer" controls>
+        Your browser does not support the audio element.
+    </audio>
+
+    <script>
+        document.getElementById("runScript").addEventListener("click", function() {
+            fetch("/run-script", { method: "POST" })
+                .then(response => response.json())
+                .then(data => alert(data.message || data.error))
+                .catch(error => console.error("Error:", error));
+        });
+
+        // Fetch the first available MP3 file and update the audio player
+        fetch("/get-audio")
+            .then(response => response.json())
+            .then(data => {
+                if (data.audio_file) {
+                    document.getElementById("audioPlayer").src = data.audio_file;
+                } else {
+                    alert("No MP3 files found.");
+                }
+            })
+            .catch(error => console.error("Error:", error));
+    </script>
+</body>
+</html>

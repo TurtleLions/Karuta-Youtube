@@ -2,6 +2,8 @@ import yt_dlp
 import json
 import threading
 from pytubefix import YouTube
+from moviepy import VideoFileClip
+import os
 
 total = 0
 done = 0
@@ -27,20 +29,6 @@ def playlistToJson(playlist_url, output_file="playlist_videos.json"):
     else:
       print("No videos found in the playlist.")
 
-# def urlTomp3(video_url):
-#   ydl_opts = {
-#     'format': 'bestaudio/best',
-#     'postprocessors': [{
-#       'key': 'FFmpegExtractAudio',
-#       'preferredcodec': 'mp3',
-#       'preferredquality': '192',
-#     }],
-#     'quiet': True
-#   }   
-#   with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-#     ydl.download([video_url])
-#   print("done")
-
 def threadStarting(json_file):
   global total
   with open(json_file, "r") as f:
@@ -59,8 +47,12 @@ def linkToAudioFile(link):
   path = stream.download(output_path='./songs', max_retries=10)
   done+=1
   print(str(done)+"/"+str(total))
-  #print(yt.title)
-  #mp4Tomp3(path=path)
+  mp4Tomp3(path=path)
+
+def mp4Tomp3(path):
+  base, ext = os.path.splitext(path)
+  new_file = base + '.mp3'
+  os.rename(path, new_file)
 
 playlist_url = "https://www.youtube.com/playlist?list=PLFL5k0qCklRoTvtOcAX5OAuokjcT2mV-H"
 playlistToJson(playlist_url)
