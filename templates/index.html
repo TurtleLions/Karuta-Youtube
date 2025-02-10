@@ -1,172 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Karuta Player</title>
-  <style>
-    #progress-container {
-      width: 100%;
-      background-color: #ddd;
-      height: 25px;
-      margin-top: 10px;
-    }
-    #progress-bar {
-      width: 0%;
-      height: 100%;
-      background-color: green;
-      text-align: center;
-      color: white;
-    }
-    #song-list {
-      list-style-type: none;
-      padding: 0;
-    }
-    #song-list li {
-      cursor: pointer;
-      padding: 5px;
-      border-bottom: 1px solid #ccc;
-    }
-    #song-list li.played {
-      background-color: gray;
-    }
-    #song-list li:hover {
-      background-color: #f0f0f0;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karuta Player</title>
 </head>
 <body>
-  <h1>Karuta Player</h1>
+    <h1>Karuta Player</h1>
 
-  <input type="text" id="playlistUrl" placeholder="Enter YouTube playlist URL">
-  <button id="runScript">Download & Convert Playlist</button>
-  <button id="clearSongs">Clear Songs Folder</button>
+    <input type="text" id="playlistUrl" placeholder="Enter YouTube playlist URL">
+    <button id="runScript">Download Playlist</button>
 
-  <h2>Progress</h2>
-  <div id="progress-container">
-    <div id="progress-bar">0%</div>
-  </div>
+    <h2>Songs</h2>
+    <ul id="songList"></ul>
 
-  <h2>Now Playing:</h2>
-  <p id="currentSong">None</p>
+    <audio id="audioPlayer" controls></audio>
 
-  <audio id="audioPlayer" controls></audio>
+    <script>
+        async function fetchSongs() {
+            const res = await fetch("/get-songs");
+            const data = await res.json();
 
-  <button id="playRandom">Play Random Song</button>
-  <button id="resetPlayed">Reset Played Songs</button>
+            const list = document.getElementById("songList");
+            list.innerHTML = "";
 
-  <h2>Downloaded Songs</h2>
-  <ul id="song-list"></ul>
+            data.songs.forEach(song => {
+                const li = document.createElement("li");
+                li.innerText = song.name;
+                li.onclick = async () => {
+                    const fileRes = await fetch(`/songs/${song.url}`);
+                    const fileData = await fileRes.json();
+                    document.getElementById("audioPlayer").src = fileData.url;
+                    document.getElementById("audioPlayer").play();
+                };
+                list.appendChild(li);
+            });
+        }
 
-  <script>
-    let playedSongs = new Set(JSON.parse(localStorage.getItem("playedSongs") || "[]"));
+        document.getElementById("runScript").addEventListener("click", async () => {
+            const playlistUrl = document.getElementById("playlistUrl").value;
+            await fetch("/run-script", { method: "POST", body: JSON.stringify({ playlist_url: playlistUrl }) });
+        });
 
-    document.getElementById("runScript").addEventListener("click", function() {
-      const playlistUrl = document.getElementById("playlistUrl").value;
-      if (!playlistUrl) {
-        alert("Please enter a YouTube playlist URL.");
-        return;
-      }
-
-      fetch("/run-script", { 
-        method: "POST", 
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playlist_url: playlistUrl })
-      })
-      .then(response => response.json())
-      .then(data => alert(data.message || data.error))
-      .catch(error => console.error("Error:", error));
-    });
-
-    document.getElementById("clearSongs").addEventListener("click", function() {
-      fetch("/clear-songs", { method: "POST" })
-        .then(response => response.json())
-        .then(data => {
-          alert(data.message || data.error);
-          playedSongs.clear();
-          localStorage.removeItem("playedSongs");
-          loadSongs();
-        })
-        .catch(error => console.error("Error:", error));
-    });
-
-    function updateProgress() {
-      fetch("/progress")
-        .then(response => response.json())
-        .then(data => {
-          let percentage = data.total > 0 ? (data.done / data.total) * 100 : 0;
-          document.getElementById("progress-bar").style.width = percentage + "%";
-          document.getElementById("progress-bar").innerText = Math.round(percentage) + "%";
-          
-          if (data.done === data.total && data.total > 0) {
-            loadSongs();
-          }
-        })
-        .catch(error => console.error("Error:", error));
-    }
-
-    function loadSongs() {
-      fetch("/get-songs")
-        .then(response => response.json())
-        .then(data => {
-          let songList = document.getElementById("song-list");
-          songList.innerHTML = "";
-
-          data.songs.forEach(song => {
-            let li = document.createElement("li");
-            li.textContent = song;
-            if (playedSongs.has(song)) {
-              li.classList.add("played");
-            }
-            li.onclick = function() {
-              playSong(song);
-            };
-            songList.appendChild(li);
-          });
-        })
-        .catch(error => console.error("Error:", error));
-    }
-
-    function playSong(song) {
-      let audioPlayer = document.getElementById("audioPlayer");
-      let audioSource = "/songs/" + encodeURIComponent(song);
-      
-      audioPlayer.src = audioSource;
-      audioPlayer.load();
-      audioPlayer.play();
-
-      document.getElementById("currentSong").innerText = song;
-
-      playedSongs.add(song);
-      localStorage.setItem("playedSongs", JSON.stringify(Array.from(playedSongs)));
-      loadSongs();
-    }
-
-    document.getElementById("playRandom").addEventListener("click", function() {
-      fetch("/get-songs")
-        .then(response => response.json())
-        .then(data => {
-          let unplayedSongs = data.songs.filter(song => !playedSongs.has(song));
-
-          if (unplayedSongs.length === 0) {
-            alert("No unplayed songs available. Reset played songs to choose again.");
-            return;
-          }
-
-          let randomSong = unplayedSongs[Math.floor(Math.random() * unplayedSongs.length)];
-          playSong(randomSong);
-        })
-        .catch(error => console.error("Error:", error));
-    });
-
-    document.getElementById("resetPlayed").addEventListener("click", function() {
-      playedSongs.clear();
-      localStorage.removeItem("playedSongs");
-      loadSongs();
-    });
-
-    setInterval(updateProgress, 2000);
-    loadSongs();
-  </script>
+        fetchSongs();
+    </script>
 </body>
 </html>
