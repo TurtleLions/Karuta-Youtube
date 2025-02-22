@@ -142,7 +142,7 @@
       audioPlayer.addEventListener("loadedmetadata", function setStartTime() {
         audioPlayer.removeEventListener("loadedmetadata", setStartTime);
 
-        let quarterDuration = audioPlayer.duration / 4;
+        let quarterDuration = audioPlayer.duration / 2;
         let randomStart = Math.random() * quarterDuration;
         audioPlayer.currentTime = randomStart;
         audioPlayer.play();
