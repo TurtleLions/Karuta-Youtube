@@ -18,19 +18,19 @@
       text-align: center;
       color: white;
     }
-    #song-list {
+    ul {
       list-style-type: none;
       padding: 0;
     }
-    #song-list li {
+    li {
       cursor: pointer;
       padding: 5px;
       border-bottom: 1px solid #ccc;
     }
-    #song-list li.played {
+    li.played {
       background-color: gray;
     }
-    #song-list li:hover {
+    li:hover {
       background-color: #f0f0f0;
     }
   </style>
@@ -55,11 +55,19 @@
   <button id="playRandom">Play Random Song</button>
   <button id="resetPlayed">Reset Played Songs</button>
 
-  <h2>Downloaded Songs</h2>
+  <h2>Song Counters</h2>
+  <p>
+    Total Songs: <span id="totalSongs">0</span> | Songs Left: <span id="songsLeft">0</span>
+  </p>
+
+  <h2>Downloaded Songs (Unplayed)</h2>
   <ul id="song-list"></ul>
 
+  <h2>Played Songs</h2>
+  <ul id="played-song-list"></ul>
+
   <script>
-    let playedSongs = new Set(JSON.parse(localStorage.getItem("playedSongs") || "[]"));
+    let playedSongsOrder = JSON.parse(localStorage.getItem("playedSongs") || "[]");
 
     document.getElementById("runScript").addEventListener("click", function() {
       const playlistUrl = document.getElementById("playlistUrl").value;
@@ -83,7 +91,7 @@
         .then(response => response.json())
         .then(data => {
           alert(data.message || data.error);
-          playedSongs.clear();
+          playedSongsOrder = [];
           localStorage.removeItem("playedSongs");
           loadSongs();
         })
@@ -109,19 +117,33 @@
       fetch("/get-songs")
         .then(response => response.json())
         .then(data => {
+          const allSongs = data.songs;
+          const unplayedSongs = allSongs.filter(song => !playedSongsOrder.includes(song));
+          
+          document.getElementById("totalSongs").innerText = allSongs.length;
+          document.getElementById("songsLeft").innerText = unplayedSongs.length;
+
           let songList = document.getElementById("song-list");
           songList.innerHTML = "";
-
-          data.songs.forEach(song => {
+          unplayedSongs.forEach(song => {
             let li = document.createElement("li");
             li.textContent = song;
-            if (playedSongs.has(song)) {
-              li.classList.add("played");
-            }
             li.onclick = function() {
               playSong(song);
             };
             songList.appendChild(li);
+          });
+          
+          let playedList = document.getElementById("played-song-list");
+          playedList.innerHTML = "";
+          playedSongsOrder.forEach(song => {
+            let li = document.createElement("li");
+            li.textContent = song;
+            li.classList.add("played");
+            li.onclick = function() {
+              playSong(song);
+            };
+            playedList.appendChild(li);
           });
         })
         .catch(error => console.error("Error:", error));
@@ -134,24 +156,22 @@
       audioPlayer.src = audioSource;
       audioPlayer.load();
 
-      // let quarterDuration = audioPlayer.duration / 4 || 0;
-      // let randomStart = Math.random() * quarterDuration;
-      // audioPlayer.currentTime = randomStart;
-      // audioPlayer.play();
-
       audioPlayer.addEventListener("loadedmetadata", function setStartTime() {
         audioPlayer.removeEventListener("loadedmetadata", setStartTime);
-
-        let quarterDuration = audioPlayer.duration / 2;
-        let randomStart = Math.random() * quarterDuration;
+        let halfDuration = audioPlayer.duration / 2;
+        let randomStart = Math.random() * halfDuration;
         audioPlayer.currentTime = randomStart;
         audioPlayer.play();
-    });
+      });
 
       document.getElementById("currentSong").innerText = song;
 
-      playedSongs.add(song);
-      localStorage.setItem("playedSongs", JSON.stringify(Array.from(playedSongs)));
+      const index = playedSongsOrder.indexOf(song);
+      if (index !== -1) {
+        playedSongsOrder.splice(index, 1);
+      }
+      playedSongsOrder.unshift(song);
+      localStorage.setItem("playedSongs", JSON.stringify(playedSongsOrder));
       loadSongs();
     }
 
@@ -159,13 +179,11 @@
       fetch("/get-songs")
         .then(response => response.json())
         .then(data => {
-          let unplayedSongs = data.songs.filter(song => !playedSongs.has(song));
-
+          let unplayedSongs = data.songs.filter(song => !playedSongsOrder.includes(song));
           if (unplayedSongs.length === 0) {
             alert("No unplayed songs available. Reset played songs to choose again.");
             return;
           }
-
           let randomSong = unplayedSongs[Math.floor(Math.random() * unplayedSongs.length)];
           playSong(randomSong);
         })
@@ -173,7 +191,7 @@
     });
 
     document.getElementById("resetPlayed").addEventListener("click", function() {
-      playedSongs.clear();
+      playedSongsOrder = [];
       localStorage.removeItem("playedSongs");
       loadSongs();
     });
