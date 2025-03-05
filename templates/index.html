@@ -51,7 +51,7 @@
     <button id="resetPlayed">Reset Played Songs</button>
     <h2>Autoplay Settings</h2>
     <label for="autoplaySlider">Play Duration (seconds): </label>
-    <input type="range" id="autoplaySlider" min="15" max="60" value="30">
+    <input type="range" id="autoplaySlider" min="0" max="60" value="30">
     <span id="sliderValue">30</span> seconds
     <br>
     <label for="autoplaySwitch">Autoplay: </label>
@@ -192,15 +192,22 @@
         audioPlayer.src = audioSource;
         audioPlayer.load();
         audioPlayer.addEventListener("loadedmetadata", function setStartTime() {
-          audioPlayer.removeEventListener("loadedmetadata", setStartTime);
-          let halfDuration = audioPlayer.duration / 2;
-          let randomStart = Math.random() * halfDuration;
-          audioPlayer.currentTime = randomStart;
-          audioPlayer.play();
-          if (document.getElementById("autoplaySwitch").checked) {
-            startAutoplayTimer();
-          }
-        });
+        audioPlayer.removeEventListener("loadedmetadata", setStartTime);
+        const autoplaySlider = document.getElementById("autoplaySlider");
+        autoplaySlider.min = 0;
+        autoplaySlider.max = Math.floor(audioPlayer.duration);
+        if (parseInt(autoplaySlider.value, 10) > audioPlayer.duration) {
+          autoplaySlider.value = Math.floor(audioPlayer.duration/2);
+        }
+        document.getElementById("sliderValue").innerText = autoplaySlider.value;
+        let halfDuration = audioPlayer.duration / 2;
+        let randomStart = Math.random() * halfDuration;
+        audioPlayer.currentTime = randomStart;
+        audioPlayer.play();
+        if (document.getElementById("autoplaySwitch").checked) {
+          startAutoplayTimer();
+        }
+      });
         document.getElementById("currentSong").innerText = song;
         const index = playedSongsOrder.indexOf(song);
         if (index !== -1) {
