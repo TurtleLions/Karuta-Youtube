@@ -5,6 +5,7 @@ from pytubefix import YouTube
 import os
 import sys
 import subprocess
+import time
 
 total = 0
 done = 0
@@ -26,24 +27,12 @@ def playlistToJson(playlist_url, output_file="playlist_videos.json"):
     else:
       print("No videos found in the playlist.")
 
-def threadStarting(json_file):
-  global total
-  with open(json_file, "r") as f:
-    video_urls = json.load(f)
-  total = len(video_urls)
-  update_progress()
-  for url in video_urls:
-    thread = threading.Thread(target=linkToAudioFile, args=(url,))
-    thread.start()
-
-def linkToAudioFile(link):
-  global done
-  yt = YouTube(link)
-  stream = yt.streams.get_audio_only(subtype='mp4')
-  path = stream.download(output_path='./songs', max_retries=10)
-  mp4Tomp3(path)
-  done += 1
-  update_progress()
+def mp4Tomp3(path):
+  base, ext = os.path.splitext(path)
+  new_file = base + '.mp3'
+  os.rename(path, new_file)
+  normalize_volume(new_file)
+  return os.path.basename(new_file)
 
 def normalize_volume(mp3_file):
   normalized_file = mp3_file.replace('.mp3', '_norm.mp3')
@@ -54,11 +43,38 @@ def normalize_volume(mp3_file):
   ], check=True)
   os.replace(normalized_file, mp3_file)
 
-def mp4Tomp3(path):
-  base, ext = os.path.splitext(path)
-  new_file = base + '.mp3'
-  os.rename(path, new_file)
-  normalize_volume(new_file)
+def linkToAudioFile(link, downloaded_songs):
+  global done
+  yt = YouTube(link)
+  stream = yt.streams.get_audio_only(subtype='mp4')
+  path = stream.download(output_path='./songs', max_retries=10)
+  mp3_file = mp4Tomp3(path)
+  downloaded_songs.append(mp3_file)
+  done += 1
+  update_progress()
+
+def threadStarting(json_file):
+  global total
+  downloaded_songs = []
+  with open(json_file, "r") as f:
+    video_urls = json.load(f)
+  total = len(video_urls)
+  update_progress()
+  threads = []
+  for url in video_urls:
+    thread = threading.Thread(target=linkToAudioFile, args=(url, downloaded_songs))
+    thread.start()
+    threads.append(thread)
+  for thread in threads:
+    thread.join()
+  # Save the downloaded songs list to a JSON file in a separate "playlists" folder.
+  if not os.path.exists("playlists"):
+    os.makedirs("playlists")
+  timestamp = int(time.time())
+  playlist_filename = f"playlists/playlist_{timestamp}.json"
+  with open(playlist_filename, "w") as f:
+    json.dump(downloaded_songs, f, indent=2)
+  print(f"Downloaded songs list saved to {playlist_filename}")
 
 if __name__ == "__main__":
   if len(sys.argv) < 2:
