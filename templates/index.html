@@ -232,14 +232,13 @@
           let halfDuration = audioPlayer.duration / 2;
           let randomStart = Math.random() * halfDuration;
           audioPlayer.currentTime = randomStart;
-          audioPlayer.play().catch((error) => {
-            console.warn("Playback failed, retrying...");
-            setTimeout(() => {
-              audioPlayer.play().catch((err) =>
-                console.error("Second attempt failed:", err)
-              );
-            }, 500);
-          });
+          function attemptPlayback() {
+            audioPlayer.play().catch((error) => {
+              console.warn("Playback failed, retrying...");
+              setTimeout(attemptPlayback, 500);
+            });
+          }
+          attemptPlayback();
           if (document.getElementById("autoplaySwitch").checked) {
             startAutoplayTimer();
           }
