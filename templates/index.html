@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Karuta Player</title>
     <style>
       #progress-container {
@@ -37,7 +37,7 @@
   </head>
   <body>
     <h1>Karuta Player</h1>
-    <input type="text" id="playlistUrl" placeholder="Enter YouTube playlist URL">
+    <input type="text" id="playlistUrl" placeholder="Enter YouTube playlist URL"/>
     <button id="runScript">Download & Convert Playlist</button>
     <button id="clearSongs">Clear Songs Folder</button>
     <h2>Progress</h2>
@@ -54,25 +54,27 @@
     <button id="resetPlayed">Reset Played Songs</button>
     <h2>Autoplay Settings</h2>
     <label for="autoplaySlider">Play Duration (seconds): </label>
-    <input type="range" id="autoplaySlider" min="0" max="60" value="30">
+    <input type="range" id="autoplaySlider" min="0" max="60" value="30"/>
     <span id="sliderValue">30</span> seconds
-    <br>
+    <br/>
     <label for="autoplaySwitch">Autoplay: </label>
-    <input type="checkbox" id="autoplaySwitch">
+    <input type="checkbox" id="autoplaySwitch"/>
     <button id="playNext">Play Next Song</button>
-    <p>Countdown: <span id="countdown">0</span> seconds</p>
+    <p>
+      Countdown:
+      <span id="countdown">0</span> seconds
+    </p>
     <h2>Song Counters</h2>
     <p>
-      Total Songs: <span id="totalSongs">0</span> | Songs Left: <span id="songsLeft">0</span>
+      Total Songs: <span id="totalSongs">0</span> | Songs Left:
+      <span id="songsLeft">0</span>
     </p>
-    
+
     <h2>Loaded Playlist Songs (Unplayed)</h2>
     <ul id="song-list"></ul>
     <h2>Played Songs from Loaded Playlist</h2>
     <ul id="played-song-list"></ul>
-    
-    
-    
+
     <script>
       let playedSongsOrder = JSON.parse(localStorage.getItem("playedSongs") || "[]");
       let autoplayTimer = null;
@@ -80,13 +82,10 @@
       let loadedPlaylist = [];
 
       function getDisplayName(song) {
-        if (song.endsWith('.mp3')) {
-          return song.slice(0, -4);
-        }
-        return song;
+        return song.endsWith(".mp3") ? song.slice(0, -4) : song;
       }
 
-      document.getElementById("runScript").addEventListener("click", function() {
+      document.getElementById("runScript").addEventListener("click", function () {
         const playlistUrl = document.getElementById("playlistUrl").value;
         if (!playlistUrl) {
           alert("Please enter a YouTube playlist URL.");
@@ -95,39 +94,39 @@
         fetch("/run-script", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playlist_url: playlistUrl })
+          body: JSON.stringify({ playlist_url: playlistUrl }),
         })
-        .then(response => response.json())
-        .then(data => alert(data.message || data.error))
-        .catch(error => console.error("Error:", error));
+          .then((response) => response.json())
+          .then((data) => alert(data.message || data.error))
+          .catch((error) => console.error("Error:", error));
       });
 
-      document.getElementById("clearSongs").addEventListener("click", function() {
+      document.getElementById("clearSongs").addEventListener("click", function () {
         fetch("/clear-songs", { method: "POST" })
-        .then(response => response.json())
-        .then(data => {
-          alert(data.message || data.error);
-          playedSongsOrder = [];
-          localStorage.removeItem("playedSongs");
-          updateSongListUI();
-          updatePlayedSongsUI();
-        })
-        .catch(error => console.error("Error:", error));
+          .then((response) => response.json())
+          .then((data) => {
+            alert(data.message || data.error);
+            playedSongsOrder = [];
+            localStorage.removeItem("playedSongs");
+            updateSongListUI();
+            updatePlayedSongsUI();
+          })
+          .catch((error) => console.error("Error:", error));
       });
 
       function updateProgress() {
         fetch("/progress")
-        .then(response => response.json())
-        .then(data => {
-          let percentage = data.total > 0 ? (data.done / data.total) * 100 : 0;
-          document.getElementById("progress-bar").style.width = percentage + "%";
-          document.getElementById("progress-bar").innerText = Math.round(percentage) + "%";
-          if (data.done === data.total && data.total > 0) {
-            updateSongListUI();
-            updatePlayedSongsUI();
-          }
-        })
-        .catch(error => console.error("Error:", error));
+          .then((response) => response.json())
+          .then((data) => {
+            let percentage = data.total > 0 ? (data.done / data.total) * 100 : 0;
+            document.getElementById("progress-bar").style.width = percentage + "%";
+            document.getElementById("progress-bar").innerText = Math.round(percentage) + "%";
+            if (data.done === data.total && data.total > 0) {
+              updateSongListUI();
+              updatePlayedSongsUI();
+            }
+          })
+          .catch((error) => console.error("Error:", error));
       }
 
       function updateSongListUI() {
@@ -139,13 +138,13 @@
           document.getElementById("songsLeft").innerText = "0";
           return;
         }
-        const unplayedSongs = loadedPlaylist.filter(song => !playedSongsOrder.includes(song));
+        const unplayedSongs = loadedPlaylist.filter((song) => !playedSongsOrder.includes(song));
         document.getElementById("totalSongs").innerText = loadedPlaylist.length;
         document.getElementById("songsLeft").innerText = unplayedSongs.length;
-        unplayedSongs.forEach(song => {
+        unplayedSongs.forEach((song) => {
           let li = document.createElement("li");
           li.textContent = getDisplayName(song);
-          li.onclick = function() {
+          li.onclick = function () {
             cancelAutoplayTimer();
             playSong(song);
           };
@@ -156,15 +155,13 @@
       function updatePlayedSongsUI() {
         let playedList = document.getElementById("played-song-list");
         playedList.innerHTML = "";
-        if (!loadedPlaylist || loadedPlaylist.length === 0) {
-          return;
-        }
-        const playedSongs = playedSongsOrder.filter(song => loadedPlaylist.includes(song));
-        playedSongs.forEach(song => {
+        if (!loadedPlaylist || loadedPlaylist.length === 0) return;
+        const playedSongs = playedSongsOrder.filter((song) => loadedPlaylist.includes(song));
+        playedSongs.forEach((song) => {
           let li = document.createElement("li");
           li.textContent = getDisplayName(song);
           li.classList.add("played");
-          li.onclick = function() {
+          li.onclick = function () {
             cancelAutoplayTimer();
             playSong(song);
           };
@@ -207,7 +204,7 @@
           alert("No playlist loaded.");
           return;
         }
-        const unplayedSongs = loadedPlaylist.filter(song => !playedSongsOrder.includes(song));
+        const unplayedSongs = loadedPlaylist.filter((song) => !playedSongsOrder.includes(song));
         if (unplayedSongs.length === 0) {
           alert("No unplayed songs available. Reset played songs to choose again.");
           return;
@@ -222,7 +219,8 @@
         let audioSource = "songs/" + encodeURIComponent(song);
         audioPlayer.src = audioSource;
         audioPlayer.load();
-        audioPlayer.addEventListener("loadedmetadata", function setStartTime() {
+
+        function setStartTime() {
           audioPlayer.removeEventListener("loadedmetadata", setStartTime);
           const autoplaySlider = document.getElementById("autoplaySlider");
           autoplaySlider.min = 0;
@@ -234,11 +232,20 @@
           let halfDuration = audioPlayer.duration / 2;
           let randomStart = Math.random() * halfDuration;
           audioPlayer.currentTime = randomStart;
-          audioPlayer.play();
+          audioPlayer.play().catch((error) => {
+            console.warn("Playback failed, retrying...");
+            setTimeout(() => {
+              audioPlayer.play().catch((err) =>
+                console.error("Second attempt failed:", err)
+              );
+            }, 500);
+          });
           if (document.getElementById("autoplaySwitch").checked) {
             startAutoplayTimer();
           }
-        });
+        }
+        audioPlayer.addEventListener("loadedmetadata", setStartTime);
+
         document.getElementById("currentSong").innerText = getDisplayName(song);
         const index = playedSongsOrder.indexOf(song);
         if (index !== -1) {
@@ -250,15 +257,13 @@
         updatePlayedSongsUI();
       }
 
-
-
-      document.getElementById("playRandom").addEventListener("click", function() {
+      document.getElementById("playRandom").addEventListener("click", function () {
         cancelAutoplayTimer();
         if (!loadedPlaylist || loadedPlaylist.length === 0) {
           alert("No playlist loaded.");
           return;
         }
-        const unplayedSongs = loadedPlaylist.filter(song => !playedSongsOrder.includes(song));
+        const unplayedSongs = loadedPlaylist.filter((song) => !playedSongsOrder.includes(song));
         if (unplayedSongs.length === 0) {
           alert("No unplayed songs available. Reset played songs to choose again.");
           return;
@@ -267,19 +272,19 @@
         playSong(randomSong);
       });
 
-      document.getElementById("resetPlayed").addEventListener("click", function() {
+      document.getElementById("resetPlayed").addEventListener("click", function () {
         playedSongsOrder = [];
         localStorage.removeItem("playedSongs");
         updateSongListUI();
         updatePlayedSongsUI();
       });
 
-      document.getElementById("playNext").addEventListener("click", function() {
+      document.getElementById("playNext").addEventListener("click", function () {
         cancelAutoplayTimer();
         playNextSong();
       });
 
-      document.getElementById("autoplaySlider").addEventListener("input", function() {
+      document.getElementById("autoplaySlider").addEventListener("input", function () {
         document.getElementById("sliderValue").innerText = this.value;
       });
 
@@ -287,21 +292,21 @@
 
       function loadPlaylistsList() {
         fetch("/get-playlists")
-          .then(response => response.json())
-          .then(data => {
+          .then((response) => response.json())
+          .then((data) => {
             let select = document.getElementById("playlistSelect");
             select.innerHTML = "";
-            data.playlists.forEach(filename => {
+            data.playlists.forEach((filename) => {
               let option = document.createElement("option");
               option.value = filename;
               option.textContent = filename;
               select.appendChild(option);
             });
           })
-          .catch(error => console.error("Error:", error));
+          .catch((error) => console.error("Error:", error));
       }
 
-      document.getElementById("loadPlaylist").addEventListener("click", function() {
+      document.getElementById("loadPlaylist").addEventListener("click", function () {
         let select = document.getElementById("playlistSelect");
         let filename = select.value;
         if (!filename) {
@@ -309,16 +314,16 @@
           return;
         }
         fetch(`/load-playlist?filename=${encodeURIComponent(filename)}`)
-          .then(response => response.json())
-          .then(data => {
+          .then((response) => response.json())
+          .then((data) => {
             loadedPlaylist = data.songs;
-            playedSongsOrder = playedSongsOrder.filter(song => loadedPlaylist.includes(song));
+            playedSongsOrder = playedSongsOrder.filter((song) => loadedPlaylist.includes(song));
             localStorage.setItem("playedSongs", JSON.stringify(playedSongsOrder));
             updateSongListUI();
             updatePlayedSongsUI();
             alert("Playlist loaded with " + loadedPlaylist.length + " songs.");
           })
-          .catch(error => console.error("Error:", error));
+          .catch((error) => console.error("Error:", error));
       });
 
       loadPlaylistsList();
