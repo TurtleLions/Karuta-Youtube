@@ -97,7 +97,10 @@
           body: JSON.stringify({ playlist_url: playlistUrl }),
         })
           .then((response) => response.json())
-          .then((data) => alert(data.message || data.error))
+          .then((data) => {
+            alert(data.message || data.error);
+            loadPlaylistsList();
+          })
           .catch((error) => console.error("Error:", error));
       });
 
