@@ -101,9 +101,11 @@ def get_custom_mapping():
 @app.route('/write-images', methods=['POST'])
 def write_custom_images():
   try:
-    data = request.json
-    filename = data.get("filename")
-    image_list = data.get("imageList")
+    data = request.form
+    print("data:", data)
+    image_list = request.files.getlist('images')
+    song_ids = request.form.getlist('song_ids')
+    filename = request.form.get('deckName')
     path = os.path.join(IMAGE_FOLDER, filename)
 
     if not os.path.isdir(IMAGE_FOLDER):
@@ -114,19 +116,14 @@ def write_custom_images():
       file_path = os.path.join(path, file)
       if os.path.isfile(file_path):
         os.remove(file_path)
-    for obj in image_list:
-      if obj["image"]:
-        header, encoded = obj["image"].split(',', 1)
-        file_ext = header.split('/')[1].split(';')[0]
-        file_name = f"{obj["id"]}.{file_ext}"
-        file_path = os.path.join(path, file_name)
-        img_bytes = base64.b64decode(encoded)
-        with open(file_path, "wb") as f:
-          f.write(img_bytes)
-    
+        
+    for song_id, image in zip(song_ids, image_list):
+      print("path:", os.path.join(path, song_id + ".jpg"))
+      save_path = os.path.join(path, song_id + ".jpg")
+      image.save(save_path)
     return jsonify({"message": "Images saved successfully"})
   except Exception as e:
-    return jsonify({"error", str(e)}), 500
+    return jsonify({"error": str(e)}), 500
 
 @app.route('/get-images', methods=['GET'])
 def get_custom_images():

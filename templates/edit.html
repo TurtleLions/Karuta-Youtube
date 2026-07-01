@@ -11,12 +11,14 @@
         <a href="/practice"><div id="go-practice" class="navigation">Practice</div></a>
         <a href="/edit-deck"><div id="go-edit" class="navigation">Edit</div></a>
         <select id="playlistSelect"></select>
-        <button id="save" onclick="saveInfo()">Save</button>
+        <button id="saveName" onclick="saveNames()">Save Names</button>
+        <button id="saveImage" onclick="saveImages()">Save Images</button>
         <table id="tableContainer"></table>
         <script>
             let playlistSelectEl = document.getElementById("playlistSelect");
             let containerEl = document.getElementById("tableContainer");
             let params = new URLSearchParams(document.location.search);
+            let images = {}
 
             let loadedPlaylist = [];
 
@@ -41,6 +43,7 @@
                 containerEl.innerHTML = "";
                 let deck = playlistSelectEl.value;
                 let ids = [];
+                images = {};
 
                 fetch(`/load-playlist?filename=${encodeURIComponent(deck)}`)
                 .then(response => response.json())
@@ -107,7 +110,8 @@
                             cell.innerHTML = "";
 
                             let imgEl = document.createElement("img");
-                            imgEl.src = data[k];
+                            imgEl.src = URL.createObjectURL(data[k]);
+                            images[k] = data[k]
                             imgEl.style.maxWidth = "100px";
                             imgEl.style.maxHeight = "100px";
 
@@ -127,24 +131,20 @@
                         let imgFile = item.getAsFile();
 
                         if (targetEl) {
-                            let reader = new FileReader();
+                            console.log(targetEl.parentElement.id)
+                            images[targetEl.parentElement.id] = imgFile;
 
-                            reader.onload = function (e) {
-                                let imgEl = document.createElement("img");
-                                imgEl.src = e.target.result;
-                                imgEl.style.maxWidth = "100px";
-                                imgEl.style.maxHeight = "100px";
+                            let imgEl = document.createElement("img");
+                            imgEl.src = URL.createObjectURL(imgFile);
+                            imgEl.style.maxWidth = "100px";
+                            imgEl.style.maxHeight = "100px";
 
-                                if (targetEl.tagName !== "TD") {
-                                    console.log("AAAAAA BAD THING");
-                                }
-
-                                targetEl.innerHTML = "";
-                                targetEl.appendChild(imgEl);
-                                targetEl.dataset.imageData = imgEl.src;
+                            if (targetEl.tagName !== "TD") {
+                                console.log("AAAAAA BAD THING");
                             }
 
-                            reader.readAsDataURL(imgFile);
+                            targetEl.innerHTML = "";
+                            targetEl.appendChild(imgEl);
                         }
                     }
                 }
@@ -203,8 +203,8 @@
                 }
             }
 
-            function saveInfo() {
-                if (!confirm("Are you sure you want to save (and potentially overwrite) current data?")) {
+            function saveNames() {
+                if (!confirm("Are you sure you want to save (and potentially overwrite) current text data?")) {
                     return;
                 }
                 let rows = document.querySelectorAll("tr");
@@ -212,9 +212,6 @@
                     "filename": playlistSelectEl.value,
                     "mapping": {}
                 };
-                let imageRequest = {};
-                imageRequest["filename"] = playlistSelectEl.value;
-                imageRequest["imageList"] = [];
 
                 rows.forEach(row => {
                     let songId = row.id;
@@ -222,13 +219,8 @@
                     if (songTitle === "") {
                         songTitle = row.id;
                     }
-                    let songImage = row.getElementsByClassName("imageCell")[0].dataset.imageData || null;
 
                     mappingData.mapping[songId] = songTitle;
-                    imageRequest.imageList.push({
-                        "id": songId,
-                        "image": songImage
-                    });
                 });
                 
                 fetch("/write-mapping", {
@@ -239,20 +231,35 @@
                 .then((response) => response.json())
                 .then(data => {
                     console.log(data.message || data.error);
-                });
+                });                
+                console.log(mappingData);
+            }
+
+            function saveImages() {
+                if (!confirm("Are you sure you want to save (and potentially overwrite) current image data?")) {
+                    return;
+                }
+                const formData = new FormData();
+
+                for (const [songName, imageFile] of Object.entries(images)) {
+                    formData.append('images', imageFile);
+                    formData.append('song_ids', songName);
+                }
+
+                console.log(playlistSelectEl.value)
+                formData.append('deckName', playlistSelectEl.value);
+
+                console.log(formData)
 
                 fetch("/write-images", {
                     method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify(imageRequest)
+                    body: formData,
                 })
                 .then((response) => response.json())
                 .then(data => {
                     console.log(data.message || data.error);
                 })
-                
 
-                console.log(mappingData);
             }
 
             document.addEventListener("paste", songPasteHandler);
