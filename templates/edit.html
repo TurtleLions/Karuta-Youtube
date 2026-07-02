@@ -110,8 +110,8 @@
                             cell.innerHTML = "";
 
                             let imgEl = document.createElement("img");
-                            imgEl.src = URL.createObjectURL(data[k]);
-                            images[k] = data[k]
+
+                            imgEl.src = `data:image/jpeg;base64,${data[k]}`;
                             imgEl.style.maxWidth = "100px";
                             imgEl.style.maxHeight = "100px";
 
@@ -246,10 +246,7 @@
                     formData.append('song_ids', songName);
                 }
 
-                console.log(playlistSelectEl.value)
                 formData.append('deckName', playlistSelectEl.value);
-
-                console.log(formData)
 
                 fetch("/write-images", {
                     method: "POST",

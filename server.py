@@ -112,14 +112,11 @@ def write_custom_images():
       os.mkdir(IMAGE_FOLDER)
     if not os.path.isdir(path):
       os.mkdir(path)
-    for file in os.listdir(path):
-      file_path = os.path.join(path, file)
-      if os.path.isfile(file_path):
-        os.remove(file_path)
-        
+      
     for song_id, image in zip(song_ids, image_list):
-      print("path:", os.path.join(path, song_id + ".jpg"))
       save_path = os.path.join(path, song_id + ".jpg")
+      if os.path.isfile(save_path):
+        os.remove(save_path)
       image.save(save_path)
     return jsonify({"message": "Images saved successfully"})
   except Exception as e:
@@ -136,11 +133,10 @@ def get_custom_images():
   if not os.path.isdir(path):
     os.mkdir(path)
   for file in os.listdir(path):
-    file_path = os.path.join(path, file)
-    with open(file_path, "rb") as f:
-      encoded = base64.b64encode(f.read()).decode('utf-8')
-      ext = path.split('.')[-1]
-      out[file[:file.rfind('.')]] = f"data:image/{ext};base64,{encoded}"
+    img_path = os.path.join(path, file)
+    with open(img_path, 'rb') as f:
+      encoded = base64.b64encode(f.read()).decode("ascii")
+      out[file[:file.rfind('.')]] = encoded
   try:
     return jsonify(out)
   except Exception as e:

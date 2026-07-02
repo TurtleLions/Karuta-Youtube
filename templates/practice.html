@@ -823,7 +823,9 @@
         } else {
           cardText.innerHTML = cardTitle.slice(0, -4);
         }
-        cardImage.src = images[songTitle] || "";
+        if (images[songTitle]) {
+          cardImage.src = `data:image/jpeg;base64,${images[songTitle]}`
+        }
 
         deckList[songTitle] = {}
 
