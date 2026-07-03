@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Karuta Practice</title>
     <style>
+      #progress-container {
+        width: 100%;
+        background-color: #ddd;
+        height: 25px;
+        margin-top: 10px;
+      }
+      #progress-bar {
+        width: 0%;
+        height: 100%;
+        background-color: green;
+        text-align: center;
+        color: white;
+      }
       #game-space {
         border: 1px solid black;
         position: relative;
@@ -83,7 +96,6 @@
         overflow-y: hidden;
         text-align: center;
         font-size: 14px;
-        cursor: pointer;
       }
       .card-image {
         height: 67%;
@@ -110,11 +122,22 @@
     <h1>Karuta Practice</h1>
     <a href="/"><div id="go-home" class="navigation">Home</div></a>
     <a href="/practice"><div id="go-practice" class="navigation">Practice</div></a>
+    <a href="/edit-deck"><div id="go-edit" class="navigation">Edit</div></a>
+    <input type="text" id="playlistUrl" placeholder="Enter YouTube playlist URL"/>
+    <button id="runScript">Download & Convert Playlist</button>
+    <button id="clearSongs">Clear Songs Folder</button>
+    <h2>Progress</h2>
+    <div id="progress-container">
+      <div id="progress-bar">0%</div>
+    </div>
     <h2>Downloaded Playlists</h2>
     <select id="playlistSelect"></select>
     <button id="loadPlaylist">Load Playlist</button>
     <button id="generateDeck">Generate/Reset Deck</button>
+    <button class="customInput" id="saveCustom" onclick="saveCustom()">Save Mapping</button>
     <button class="customInput" id="loadCustom" onclick="loadCustom()">Load Mapping</button>
+    <button class="customInput" id="toggleCustom">Show Custom Input Visibility</button><br>
+    <textarea class="customInput" id="customInput"></textarea>
     <hr></hr>
     <button id="pauseSong">Pause/Resume Current Song</button>
     <button id="playRandom">Play Random Song</button>
@@ -164,17 +187,14 @@
       let sliderValueEl = document.getElementById("sliderValue");
       let pauseSongEl = document.getElementById("pauseSong");
       let playRandomEl = document.getElementById("playRandom");
-      let playNextEl = document.getElementById("playNext");
       let playlistSelectEl = document.getElementById("playlistSelect");
+      let customInputEl = document.getElementById("customInput");
       let gameSpaceEl = document.getElementById("game-space");
-      let saveNameEl = document.getElementById("playlistName");
 
       let playedSongsOrder = JSON.parse(localStorage.getItem("playedSongs") || "[]");
       let autoplayTimer = null;
       let countdownInterval = null;
       let loadedPlaylist = [];
-      let deckname = "";
-      let customInputString = "";
 
       let deckIsGenerated = false;
       let deckList = {};
@@ -187,13 +207,57 @@
       let stats = {}
 
       let correct = true;
-      let dragged = null;
 
       function getDisplayName(song) {
-        if (cardNameMapping[song] != undefined) {
-          return cardNameMapping[song];
-        }
         return song.endsWith(".mp3") ? song.slice(0, -4) : song;
+      }
+
+      document.getElementById("runScript").addEventListener("click", function () {
+        const playlistUrl = document.getElementById("playlistUrl").value;
+        if (!playlistUrl) {
+          alert("Please enter a YouTube playlist URL.");
+          return;
+        }
+        fetch("/run-script", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playlist_url: playlistUrl }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            alert(data.message || data.error);
+            loadPlaylistsList();
+          })
+          .catch((error) => console.error("Error:", error));
+      });
+
+      document.getElementById("clearSongs").addEventListener("click", function () {
+        fetch("/clear-songs", { method: "POST" })
+          .then((response) => response.json())
+          .then((data) => {
+            alert(data.message || data.error);
+            playedSongsOrder = [];
+            localStorage.removeItem("playedSongs");
+            updateSongListUI();
+            updatePlayedSongsUI();
+          })
+          .catch((error) => console.error("Error:", error));
+      });
+
+      function updateProgress() {
+        fetch("/progress")
+          .then((response) => response.json())
+          .then((data) => {
+            let progressEl = document.getElementById("progress-bar");
+            let percentage = data.total > 0 ? (data.done / data.total) * 100 : 0;
+            progressEl.style.width = percentage + "%";
+            progressEl.innerText = Math.round(percentage) + "%";
+            if (data.done === data.total && data.total > 0) {
+              updateSongListUI();
+              updatePlayedSongsUI();
+            }
+          })
+          .catch((error) => console.error("Error:", error));
       }
 
       function updateSongListUI() {
@@ -303,10 +367,6 @@
           alert("No unplayed songs available. Reset played songs to choose again.");
           return;
         }
-        if (!deckIsGenerated) {
-          alert("Generate a deck first.");
-          return;
-        }
 
         await handlePreviousSong();
         
@@ -320,8 +380,7 @@
 
       function playSong(song) {
         cancelAutoplayTimer();
-        let audioSource;
-        audioSource = "stored-songs/" + deckname + "/" + encodeURIComponent(song);
+        let audioSource = "songs/" + encodeURIComponent(song);
         audioPlayerEl.src = audioSource;
         audioPlayerEl.load();
 
@@ -402,7 +461,7 @@
         await handlePreviousSong();
         
         let randomSong = unplayedSongs[Math.floor(Math.random() * unplayedSongs.length)];
-        //console.log("random song: " + randomSong);
+        console.log("random song: " + randomSong);
 
         songStart = performance.now();
         correct = false;
@@ -410,7 +469,7 @@
         playSong(randomSong);
       });
 
-      playNextEl.addEventListener("click", function () {
+      document.getElementById("playNext").addEventListener("click", function () {
         cancelAutoplayTimer();
         playNextSong();
       });
@@ -431,6 +490,10 @@
         toggleDivVisibility(event, "card-stats", "Card");
       });
 
+      document.getElementById("toggleCustom").addEventListener("click", function(event) {
+        toggleDivVisibility(event, "customInput", "Custom Input");
+      })
+
       function toggleDivVisibility(event, toToggle, toggleText) {
         let toggleEl = document.getElementById(toToggle);
         if (toggleEl.style.display === "none") {
@@ -441,6 +504,8 @@
           event.target.innerHTML = `Show ${toggleText} Visibility`;
         }
       }
+
+      setInterval(updateProgress, 2000);
 
       function loadPlaylistsList() {
         fetch("/get-playlists")
@@ -459,7 +524,6 @@
 
       document.getElementById("loadPlaylist").addEventListener("click", function () {
         let filename = playlistSelectEl.value;
-        deckname = playlistSelectEl.value.substring(0, playlistSelectEl.value.length - 5);
         if (!filename) {
           alert("No playlist selected.");
           return;
@@ -474,12 +538,12 @@
             updatePlayedSongsUI();
             alert("Playlist loaded with " + loadedPlaylist.length + " songs.");
 
-            if (customInputString === "") {
+            if (customInputEl.value === "") {
               let customOut = "";
               loadedPlaylist.forEach((v) => {
                 customOut += `${v}\t${v}\n`
               })
-              customInputString = customOut;
+              customInputEl.value = customOut;
               cardNameMapping = {};
             }
           })
@@ -514,7 +578,7 @@
           "lastCard": 0
         }
 
-        cardNameMapping = parseCustomInput(customInputString);
+        cardNameMapping = parseCustomInput(customInputEl.value);
 
         deckList = {}
         cardsLeft = deckLength;
@@ -559,11 +623,7 @@
           target.removeEventListener("click", handleSongChoice);
           target.innerHTML = "";
           target.style.borderColor = "white";
-          target.style.cursor = "auto";
-          target.id = "";
-          target.draggable = false;
           cardsLeft--;
-          console.log("CORRECT, CARDS LEFT:", cardsLeft)
 
           let timeForCard = Math.round(performance.now() - songStart); 
           deckList[chosenTitle]["timeTaken"] = timeForCard;
@@ -585,9 +645,6 @@
           stats["errors"] += 1;
           if (addNextCard().then((res) => res)) {
             cardsLeft++;
-            console.log("INCORRECT, CARDS LEFT:", cardsLeft)
-          } else {
-            console.log("INCORRECT, CARDS LEFT (OUT OF REPLACEMENTS):", cardsLeft)
           }
         }
 
@@ -604,7 +661,6 @@
               toReroll.innerHTML = "";
               toReroll.style.borderColor = "white";
               cardsLeft--;
-              console.log("FAILED REROLL, CARDS LEFT:", cardsLeft)
             }
             let timeForCard = Math.round(performance.now() - songStart); 
             deckList[playedSongsOrder[0]]["status"] = "rerolled";
@@ -615,7 +671,6 @@
             stats["rerolls"] += 1;
             updateCardStatsUI();
             updateStatsBox();
-            console.log("SUCCESSFUL REROLL, CARDS LEFT:", cardsLeft)
             return true;
           });
         }
@@ -652,39 +707,27 @@
           nextCardTitle = remainingCards[Math.floor(Math.random() * remainingCards.length)];
 
           if (toReplace === null) {
-            let found = false;
-            for (const child of gameSpaceEl.children) {
-              if (child.id == "" || child.id == null) {
-                gameSpaceEl.replaceChild(createCardElement(nextCardTitle), child);
-                found = true;
-                break;
-              }
-            }
-            if (!found) {
-              gameSpaceEl.appendChild(createCardElement(nextCardTitle));
-            }
+            gameSpaceEl.appendChild(createCardElement(nextCardTitle));
             resolve(true);
           } else {
-            toReplace.style.outline = "4px solid red";
-            toReplace.style.outlineOffset = "-4px";
+            toReplace.style.borderColor = "red";
+            toReplace.style.borderWidth = "thick";
             playRandomEl.disabled = true;
-            playNextEl.disabled = true;
             correct = true;
             console.log(correct);
             setTimeout(() => {
               gameSpaceEl.replaceChild(createCardElement(nextCardTitle), toReplace);
               let next = document.getElementById(nextCardTitle);
-              toReplace.style.outline = "4px solid red";
-              toReplace.style.outlineOffset = "-4px";
+              next.style.borderColor = "red";
+              next.style.borderWidth = "thick";
               setTimeout(() => {
-                toReplace.style.outline = "";
-                toReplace.style.outlineOffset = "";
+                next.style.borderColor = "gray"; 
+                next.style.borderWidth = "inherit";
                 playRandomEl.disabled = false;
-                playNextEl.disabled = false;
                 correct = false;
                 resolve(true);
-              }, 1500);
-            }, 1500);
+              }, 1000);
+            }, 1000);
           }
         });
       }
@@ -701,56 +744,10 @@
         songCard.id = songTitle;
         cardImage.className = "card-image";
         cardText.className = "card-text";
-        cardImage.draggable = false;
-        songCard.draggable = true;
 
         let cardTitle = (cardNameMapping[songTitle] != undefined) ? cardNameMapping[songTitle] : songTitle;
 
         songCard.addEventListener("click", handleSongChoice);
-
-        songCard.addEventListener("dragenter", (event) => {
-          event.preventDefault()
-          if (correct && dragged != null) {
-            const draggedElementId = event.dataTransfer.getData("text/plain");
-            songCard.style.outline = "4px solid #6fb5cf";
-            songCard.style.outlineOffset = "-4px";
-          }
-        });
-
-        songCard.addEventListener("dragover", (event) => {
-          event.preventDefault();
-        })
-
-        songCard.addEventListener("dragleave", (event) => {
-          if (correct && dragged != null && !songCard.contains(event.relatedTarget)) {
-            songCard.style.outline = "";
-            songCard.style.outlineOffset = "";
-          }
-        });
-
-        songCard.addEventListener("dragstart", (event) => {
-          if (correct) {
-            dragged = event.target;
-          }
-        });
-
-        songCard.addEventListener("dragend", (event) => {
-          if (correct) {
-            dragged = null;
-          }
-        });
-
-        songCard.addEventListener("drop", (event) => {
-          if (correct && dragged != null) {
-            songCard.style.outline = "";
-            songCard.style.outlineOffset = "";
-
-            let dummy = createCardElement("");
-            gameSpaceEl.replaceChild(dummy, dragged);
-            gameSpaceEl.replaceChild(dragged, songCard);
-            gameSpaceEl.replaceChild(songCard, dummy);
-          }
-        });
 
         if (cardTitle.slice(-4) != ".mp3") {
           cardText.innerHTML = cardTitle;
@@ -768,6 +765,32 @@
         document.getElementById("stats-box").innerHTML = JSON.stringify(stats, null, 2).replace(/[{}"]/g, "");
       }
 
+      function saveCustom() {
+        if (!confirm(`Are you sure you want to overwrite any previous mapping for ${playlistSelectEl.value}?`)) {
+          return;
+        }
+
+        jsonData = {
+          "mapping": parseCustomInput(customInputEl.value),
+          "filename": playlistSelectEl.value
+        }
+        noMapping = Object.entries(jsonData.mapping).every(([key, value]) => key === value);
+        if (noMapping) {
+          alert("No mapping detected, nothing will be written")
+          return;
+        }
+
+        fetch("/write-mapping", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(jsonData)
+        })
+        .then((response) => response.json())
+        .then(data => {
+          alert(data.message || data.error);
+        });
+      }
+
       function loadCustom() {
         fetch("/get-mapping?filename=" + playlistSelectEl.value)
         .then(response => response.json())
@@ -779,7 +802,7 @@
             Object.keys(data).forEach((k) => {
               customString += `${k}\t${data[k]}\n`;
             });
-            customInputString = customString;
+            customInputEl.value = customString;
           }
         });
 
