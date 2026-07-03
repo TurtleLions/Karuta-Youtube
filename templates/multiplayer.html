@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Karuta Room</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/multiplayer.css') }}">
+  </head>
+  <body>
+    <h1>Karuta Room Code: {{ room }}</h1>
+    <h2 id="deckDisplay"></h2>
+    <a href="/" onclick="return confirmNavigation(event)"><div id="go-home" class="navigation">Home</div></a>
+    <hr></hr>
+    <div id="game-header">
+      <div id="readyDiv">
+        <button id="ready" onclick="toggleReady()">Ready for Next Song</button>
+        <input type="checkbox" id="readyCheckbox" onclick="return false;"/>
+      </div>
+      <div id="tapoutDiv" style="display: none">
+        <button id="tapout" onclick="tapOut()">Tap Out</button>
+      </div>
+      <div id="nextGameDiv" style="display: none">
+        <select id="playlistSelect"></select>
+        <button id="create-room" onclick="replayRoom()">Create a Room</button>
+      </div>
+      <div id="countdown"></div>
+      <div id="answer">Song Name:</div>
+      <div id="own-score">You:</div>
+      <div id="other-score">Opponent:</div>
+      <div id="notifications"></div>
+    </div>
+      <h2>Game</h2>
+    <div id="game-space"></div>
+    <div id="audio">
+      <audio id="audioPlayer" style="display: none" controls></audio>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src=" {{ url_for('static', filename='scripts/multiplayer.js') }}"></script>
+  </body>
+</html>

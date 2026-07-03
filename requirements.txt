@@ -3,3 +3,10 @@ yt-dlp
 pytubefix
 moviepy
 gunicorn
+yt-dlp[default,curl-cffi]
+flask-socketio
+gevent 
+gevent-websocket
+mutagen
+dotenv
+gunicorn
