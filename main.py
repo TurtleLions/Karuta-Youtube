@@ -5,12 +5,14 @@ import os
 import sys
 import subprocess
 import time
+import random
 from yt_dlp.networking.impersonate import ImpersonateTarget
 
 total = 0
 done = 0
 PROGRESS_FILE = "progress.json"
-MAX_THREADS = 50
+MAX_THREADS = 10
+MAX_RETRIES = 3
 sema = threading.Semaphore(MAX_THREADS)
 progress_lock = threading.Lock()
 
@@ -23,8 +25,8 @@ def playlistToJson(playlist_url, playlist_name, output_file="playlist_videos.jso
         'quiet': True, 
         'extract_flat': True, 
         'force_generic_extractor': True, 
-        'rm_cachedir': True, 
-        'http_chunk_size': 1048576,
+        'rm_cachedir': False, 
+        'http_chunk_size': 52428800,
         'impersonate': ImpersonateTarget.from_str('chrome')
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -56,7 +58,7 @@ def normalize_volume(mp3_file):
     ], check=True)
     os.replace(normalized_file, mp3_file)
 
-def linkToAudioFile(link, downloaded_songs, id):
+def linkToAudioFile(link, downloaded_songs, failed_songs, id):
     global done
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -67,21 +69,38 @@ def linkToAudioFile(link, downloaded_songs, id):
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'rm_cachedir': True, 
-        'http_chunk_size': 1048576,
-        'impersonate': ImpersonateTarget.from_str('chrome')
+        'rm_cachedir': False,
+        'http_chunk_size': 52428800,
+        'impersonate': ImpersonateTarget.from_str('chrome'),
+        'sleep_interval_requests': 2,
+        'sleep_interval': 2,
+        'max_sleep_interval': 10,
     }
     with sema:
-        print(f"================ ABOUT TO TRY DOWNLOADING LINK: {link}")
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(link, download=True)
-            # Prepare the filename and force .mp3 extension
-            filename = ydl.prepare_filename(info)
-            base, _ = os.path.splitext(filename)
-            mp3_file = base + ".mp3"
-        # Normalize volume after conversion
-        normalize_volume(mp3_file)
-        downloaded_songs.append(os.path.basename(mp3_file))
+        last_error = None
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                print(f"================ ABOUT TO TRY DOWNLOADING LINK: {link} (attempt {attempt}/{MAX_RETRIES})")
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(link, download=True)
+                    # Prepare the filename and force .mp3 extension
+                    filename = ydl.prepare_filename(info)
+                    base, _ = os.path.splitext(filename)
+                    mp3_file = base + ".mp3"
+                # Normalize volume after conversion
+                normalize_volume(mp3_file)
+                downloaded_songs.append(os.path.basename(mp3_file))
+                with progress_lock:
+                    done += 1
+                    update_progress()
+                return
+            except Exception as e:
+                last_error = f"{type(e).__name__}: {e}"
+                print(f"XXXXXXXXXXXXXX DOWNLOAD FAILED for {link} on attempt {attempt}/{MAX_RETRIES}: {last_error}")
+                if attempt < MAX_RETRIES:
+                    backoff = (2 ** (attempt - 1)) + random.uniform(0, 1)
+                    time.sleep(backoff)
+        failed_songs.append({"url": link, "error": last_error})
         with progress_lock:
             done += 1
             update_progress()
@@ -89,6 +108,7 @@ def linkToAudioFile(link, downloaded_songs, id):
 def threadStarting(json_file, playlist_name):
     global total
     downloaded_songs = []
+    failed_songs = []
     with open(json_file, "r") as f:
         json_data = json.load(f)
     if playlist_name != "":
@@ -100,7 +120,7 @@ def threadStarting(json_file, playlist_name):
     update_progress()
     threads = []
     for url in video_urls:
-        thread = threading.Thread(target=linkToAudioFile, args=(url, downloaded_songs, id))
+        thread = threading.Thread(target=linkToAudioFile, args=(url, downloaded_songs, failed_songs, id))
         thread.start()
         threads.append(thread)
     for thread in threads:
@@ -113,6 +133,13 @@ def threadStarting(json_file, playlist_name):
     with open(playlist_filename, "w") as f:
         json.dump(downloaded_songs, f, indent=2)
     print(f"Downloaded songs list saved to {playlist_filename}")
+    if failed_songs:
+        failed_filename = f"playlists/{id}_failed.json"
+        with open(failed_filename, "w") as f:
+            json.dump(failed_songs, f, indent=2)
+        print(f"WARNING: {len(failed_songs)} song(s0) failed after {MAX_RETRIES} attempts")
+        for fs in failed_songs:
+            print(f"---- {fs['url']}: {fs['error']}")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
