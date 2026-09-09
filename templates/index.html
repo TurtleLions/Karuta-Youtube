@@ -88,6 +88,10 @@
     <input type="range" id="autoplaySlider" min="0" max="60" value="30"/>
     <span id="sliderValue">30</span> seconds
     <br/>
+    <label for="startSlider">Latest Start Time (percentage): </label>
+    <input type="range" id="startSlider" min="20" max="80" value="50"/>
+    <span id="startValue">50</span>%
+    <br/>
     <label for="autoplaySwitch">Autoplay: </label>
     <input type="checkbox" id="autoplaySwitch"/>
     <button id="playNext">Play Next Song</button>
@@ -261,8 +265,10 @@
             autoplaySlider.value = Math.floor(audioPlayer.duration / 2);
           }
           document.getElementById("sliderValue").innerText = autoplaySlider.value;
-          let halfDuration = audioPlayer.duration / 2;
-          let randomStart = Math.random() * halfDuration;
+          let maxTimeRatio = document.getElementById("startSlider").value / 100;
+          console.log(maxTimeRatio);
+          let latestDuration = audioPlayer.duration * maxTimeRatio;
+          let randomStart = Math.random() * latestDuration;
           audioPlayer.currentTime = randomStart;
 
           attemptPlayback();
@@ -319,6 +325,10 @@
         document.getElementById("sliderValue").innerText = this.value;
       });
 
+      document.getElementById("startSlider").addEventListener("input", function () {
+        document.getElementById("startValue").innerText = this.value;
+      });
+
       setInterval(updateProgress, 2000);
 
       function loadPlaylistsList() {
@@ -327,6 +337,7 @@
           .then((data) => {
             let select = document.getElementById("playlistSelect");
             select.innerHTML = "";
+            data.playlists.sort();
             data.playlists.forEach((filename) => {
               let option = document.createElement("option");
               option.value = filename;
