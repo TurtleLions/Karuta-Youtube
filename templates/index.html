@@ -99,6 +99,13 @@
       Countdown:
       <span id="countdown">0</span> seconds
     </p>
+    <h2>Chunk Length Settings</h2>
+    <label for="chunkSlider">Sample Chunk Length (seconds):</label>
+    <input type="range" id="chunkSlider" min="1" max="60" value="10"/>
+    <span id="chunkValue">10</span> seconds<br>
+    <label for="chunkSwitch">Enable Song Chunks:</label>
+    <input type="checkbox" id="chunkSwitch"/>
+    <button id="nextChunkButton">Play Next Chunk</button>
     <h2>Song Counters</h2>
     <p>
       Total Songs: <span id="totalSongs">0</span> | Songs Left:
@@ -114,7 +121,9 @@
       let playedSongsOrder = JSON.parse(localStorage.getItem("playedSongs") || "[]");
       let reverseMap = JSON.parse(localStorage.getItem("reverseMap") || "{}");
       let autoplayTimer = null;
+      let chunkTimer = null;
       let countdownInterval = null;
+      let chunkCountdownInterval = null;
       let loadedPlaylist = [];
       let saveNameEl = document.getElementById("playlistName");
 
@@ -227,6 +236,33 @@
         document.getElementById("countdown").innerText = "0";
       }
 
+      function startChunkTimer() {
+        let duration = parseInt(document.getElementById("chunkSlider").value, 10);
+        let secondsLeft = duration;
+        chunkCountdownInterval = setInterval(() => {
+          secondsLeft--;
+          if (secondsLeft <= 0) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+          }
+        }, 1000);
+        chunkTimer = setTimeout(() => {
+          cancelChunkTimer();
+          document.getElementById("audioPlayer").pause();
+        }, duration * 1000);
+      }
+
+      function cancelChunkTimer() {
+        if (chunkTimer !== null) {
+          clearTimeout(chunkTimer);
+          chunkTimer = null;
+        }
+        if (chunkCountdownInterval !== null) {
+          clearInterval(chunkCountdownInterval);
+          chunkCountdownInterval = null;
+        }
+      }
+
       function playNextSong() {
         if (!loadedPlaylist || loadedPlaylist.length === 0) {
           alert("No playlist loaded.");
@@ -243,6 +279,7 @@
 
       function playSong(song) {
         cancelAutoplayTimer();
+        cancelChunkTimer();
         let deckname = reverseMap[song];
         let audioPlayer = document.getElementById("audioPlayer");
         let audioSource = "stored-songs/" + deckname + "/" + encodeURIComponent(song);
@@ -266,7 +303,6 @@
           }
           document.getElementById("sliderValue").innerText = autoplaySlider.value;
           let maxTimeRatio = document.getElementById("startSlider").value / 100;
-          console.log(maxTimeRatio);
           let latestDuration = audioPlayer.duration * maxTimeRatio;
           let randomStart = Math.random() * latestDuration;
           audioPlayer.currentTime = randomStart;
@@ -279,6 +315,8 @@
           };
           if (document.getElementById("autoplaySwitch").checked) {
             startAutoplayTimer();
+          } else if (document.getElementById("chunkSwitch").checked) {
+            startChunkTimer();
           }
         }
         audioPlayer.addEventListener("canplaythrough", onCanPlayThrough);
@@ -296,6 +334,7 @@
 
       document.getElementById("playRandom").addEventListener("click", function () {
         cancelAutoplayTimer();
+        cancelChunkTimer();
         if (!loadedPlaylist || loadedPlaylist.length === 0) {
           alert("No playlist loaded.");
           return;
@@ -318,16 +357,45 @@
 
       document.getElementById("playNext").addEventListener("click", function () {
         cancelAutoplayTimer();
+        cancelChunkTimer();
         playNextSong();
       });
+
+      document.getElementById("nextChunkButton").addEventListener("click", function () {
+        if (chunkTimer !== null || chunkCountdownInterval !== null) {
+          return;
+        }
+        
+        let audioPlayer = document.getElementById("audioPlayer");
+        if (audioPlayer.paused) {
+          audioPlayer.play();
+        }
+        startChunkTimer();
+      })
 
       document.getElementById("autoplaySlider").addEventListener("input", function () {
         document.getElementById("sliderValue").innerText = this.value;
       });
 
+      document.getElementById("chunkSlider").addEventListener("input", function () {
+        document.getElementById("chunkValue").innerText = this.value;
+      });
+
       document.getElementById("startSlider").addEventListener("input", function () {
         document.getElementById("startValue").innerText = this.value;
       });
+
+      document.getElementById("autoplaySwitch").addEventListener("change", function (e) {
+        if (e.target.checked) {
+          document.getElementById("chunkSwitch").checked = false;
+        }
+      })
+
+      document.getElementById("chunkSwitch").addEventListener("change", function (e) {
+        if (e.target.checked) {
+          document.getElementById("autoplaySwitch").checked = false;
+        }
+      })
 
       setInterval(updateProgress, 2000);
 

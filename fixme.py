@@ -10,7 +10,7 @@ if len(sys.argv) < 2:
 DECK_NAME = sys.argv[1]
 
 song_dir = f"stored-songs/{DECK_NAME}"
-misc_path = f"ppap/{DECK_NAME}.json"
+misc_path = f"playlists/{DECK_NAME}.json"
 
 filenames = [f for f in os.listdir(song_dir)]
 filenames = [unicodedata.normalize('NFC', f) for f in filenames]
